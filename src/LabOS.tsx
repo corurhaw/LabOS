@@ -357,10 +357,10 @@ function Topology({
                 }}
               >
                 <rect
-                  x={p.x - compact ? 0 : 0}
-                  y={0}
-                  width={0}
-                  height={0}
+                  x={p.x - (compact ? 56 : 61)}
+                  y={p.y - 25}
+                  width={compact ? 112 : 122}
+                  height="52"
                   fill="none"
                 />
                 <rect
@@ -866,25 +866,53 @@ export default function LabOS() {
         'application/json'
       );
     else {
-      const keys = [
+      const keys: (keyof LabRecord)[] = [
         'id',
         'kind',
         'title',
         'status',
         'category',
+        'priority',
+        'location',
         'hostname',
         'ip',
         'vlan',
-        'location',
-        'description',
-        'priority',
+        'cpu',
+        'gpu',
+        'ram',
+        'storage',
+        'os',
+        'network',
+        'watts',
+        'source',
+        'target',
+        'speed',
+        'objective',
+        'procedure',
+        'observations',
+        'results',
+        'tasks',
+        'progress',
         'price',
         'targetPrice',
+        'cpuPct',
+        'ramPct',
+        'diskPct',
+        'temperature',
+        'throughput',
+        'description',
         'createdAt',
         'updatedAt',
         'origin',
       ];
-      const q = (x: unknown) => '"' + String(x ?? '').replace(/"/g, '""') + '"';
+      const q = (x: unknown) => {
+        const raw = String(x ?? '');
+        const safe =
+          /^[=+\-@\t\r]/.test(raw) && !/^-\d+(\.\d+)?$/.test(raw)
+            ? "'" + raw
+            : raw;
+        return '"' + safe.replace(/"/g, '""') + '"';
+      };
       saveDownload(
         'labos-export.csv',
         [

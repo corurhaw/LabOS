@@ -56,7 +56,11 @@ const kinds: Kind[] = [
   'metric',
 ];
 const safeTable = (userId: string) =>
-  'labos_' + userId.replace(/[^A-Za-z0-9]/g, '');
+  'labos_' +
+  userId.replace(
+    /[^A-Za-z0-9]/g,
+    ch => '_' + ch.charCodeAt(0).toString(16) + '_'
+  );
 const text = (value: unknown, size = 2000) =>
   typeof value === 'string' ? value.trim().slice(0, size) : '';
 const num = (value: unknown, min: number, max: number) => {
@@ -152,6 +156,17 @@ async function scopedList(table: string, cursor?: string) {
     ...(cursor ? { nextToken: cursor } : {}),
   });
 }
+async function listAllRecords(table: string): Promise<LabRecord[]> {
+  const all: LabRecord[] = [];
+  let cursor: string | undefined = undefined;
+  for (let page = 0; page < 50; page++) {
+    const data = await scopedList(table, cursor);
+    all.push(...data.items);
+    if (!data.nextToken) break;
+    cursor = data.nextToken;
+  }
+  return all;
+}
 
 export const handler = router({
   'GET /api/_healthcheck': [async () => json({ ok: true })],
@@ -181,7 +196,7 @@ export const handler = router({
         if (!validId(id)) return error('Invalid operation ID.', 400);
         const record = normalize(ctx.body);
         if (!record)
-          return error('A valid title and category are required.', 400);
+          return error('A valid title and record type are required.', 400);
         const table = safeTable(ctx.user!.userId);
         if (!(await validReferences(table, record)))
           return error(
@@ -259,15 +274,16 @@ export const handler = router({
         });
         if (!previous) return error('Record not found.', 404);
         if (previous.kind === 'asset') {
-          const page = await scopedList(table);
-          const links = page.items
+          const allRecords = await listAllRecords(table);
+          const links = allRecords
             .filter(
               item =>
                 (item.kind === 'link' &&
                   (item.source === id || item.target === id)) ||
                 (item.kind === 'metric' && item.source === id)
             )
-            .map(item => item.id);
+            .map(item => item.id)
+            .filter((depId): depId is string => Boolean(depId));
           if (links.length) await db.delete(table, links);
         }
         const [deleted] = await db.delete(table, [id]);
